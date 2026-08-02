@@ -235,6 +235,24 @@
   :setter      (fn [new-value]
                  (setting/set-value-of-type! :string :llm-azure-api-base-url (normalize-llm-base-url new-value))))
 
+;;; --------------------------------------- Custom (OpenAI-compatible) ------------------------------------------
+
+(defsetting llm-custom-api-key
+  (deferred-tru "The API key for a custom OpenAI-compatible endpoint.")
+  ;; Custom endpoints define their own key formats, so unlike the named providers there is no prefix validation.
+  :sensitive? true
+  :visibility :settings-manager
+  :export?    false
+  :setter     (partial set-trimmed-string! :llm-custom-api-key))
+
+(defsetting llm-custom-api-base-url
+  (deferred-tru "The base URL of a custom OpenAI-compatible Chat Completions endpoint, e.g. `https://api.deepseek.com/v1`. `/chat/completions` and `/models` are appended to it, so it must include whatever version segment the endpoint expects.")
+  :encryption :no
+  :visibility :settings-manager
+  :export?    false
+  :setter     (fn [new-value]
+                (setting/set-value-of-type! :string :llm-custom-api-base-url (normalize-llm-base-url new-value))))
+
 ;;; --------------------------------------------------- Proxy ---------------------------------------------------
 
 (defsetting llm-proxy-base-url

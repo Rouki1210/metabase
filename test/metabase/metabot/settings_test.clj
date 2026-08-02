@@ -393,6 +393,28 @@
                  {:base-url "https://my-resource.services.ai.azure.com/openai"})))
     (is (false? (metabot.settings/provider-credentials-complete? "azure" nil)))))
 
+(deftest custom-provider-credentials-test
+  (testing "the custom provider takes a free-text model plus an API key and base URL"
+    (mt/with-temporary-setting-values [llm-metabot-provider    "custom/deepseek-chat"
+                                       llm-custom-api-key      "custom-key"
+                                       llm-custom-api-base-url "https://api.example.com/v1/"]
+      (is (= "custom/deepseek-chat" (metabot.settings/llm-metabot-provider)))
+      ;; trailing slash is trimmed by the setter, like the other base URLs
+      (is (= {:api-key  "custom-key"
+              :base-url "https://api.example.com/v1"}
+             (metabot.settings/configured-provider-credentials "custom")))
+      (is (true? (metabot.settings/llm-metabot-configured?))))
+    (testing "and is unconfigured without the base URL"
+      (mt/with-temporary-setting-values [llm-metabot-provider    "custom/deepseek-chat"
+                                         llm-custom-api-key      "custom-key"
+                                         llm-custom-api-base-url nil]
+        (is (nil? (metabot.settings/configured-provider-credentials "custom")))
+        (is (false? (metabot.settings/llm-metabot-configured?)))))
+    (testing "and rejects a provider string with no model"
+      (is (thrown-with-msg?
+           clojure.lang.ExceptionInfo #"Model name is required"
+           (metabot.settings/llm-metabot-provider! "custom/"))))))
+
 (deftest provider-credentials-complete?-api-key-provider-test
   (testing "API-key provider credentials are complete only with a non-blank :api-key"
     (is (true? (metabot.settings/provider-credentials-complete? "openai" {:api-key "sk-valid"})))

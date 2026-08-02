@@ -633,6 +633,7 @@ describe("AIProviderSettingsSection", () => {
       /Z\.AI/,
       /Microsoft Azure/,
       /Amazon Bedrock/,
+      /Custom \(OpenAI-compatible\)/,
     ]) {
       const option = await screen.findByRole("option", { name });
       expect(option).toBeInTheDocument();

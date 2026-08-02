@@ -61,6 +61,15 @@ export function getProviderOptions(
           "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
       },
     },
+    custom: {
+      value: "custom",
+      label: t`Custom (OpenAI-compatible)`,
+      apiKey: {
+        // A custom endpoint defines its own key format
+        placeholder: t`Enter your API key`,
+        addKeyUrl: "https://www.metabase.com/docs/latest/ai/settings",
+      },
+    },
     mistral: {
       value: "mistral",
       label: "Mistral",
@@ -100,7 +109,7 @@ export function getProviderOptions(
 
 export type MetabotApiKeyProvider = Exclude<
   MetabotProvider,
-  "metabase" | "azure" | "bedrock"
+  "metabase" | "azure" | "bedrock" | "custom"
 >;
 
 export function isMetabotProvider(
@@ -114,12 +123,21 @@ export function isAvailableProvider(provider: MetabotProvider): boolean {
     provider === "anthropic" ||
     provider === "azure" ||
     provider === "bedrock" ||
+    provider === "custom" ||
     provider === "metabase" ||
     provider === "mistral" ||
     provider === "openai" ||
     provider === "openrouter" ||
     provider === "zai"
   );
+}
+
+/** Providers whose credentials span several settings, so they are cleared through
+ * `PUT /api/metabot/settings` with `credentials: null` instead of a single API key setting. */
+export function hasMultiSettingCredentials(
+  provider: MetabotProvider,
+): provider is "azure" | "bedrock" | "custom" {
+  return provider === "azure" || provider === "bedrock" || provider === "custom";
 }
 
 export const API_KEY_SETTING_BY_PROVIDER: Record<

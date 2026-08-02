@@ -194,6 +194,7 @@ export type MetabotProvider =
   | "anthropic"
   | "azure"
   | "bedrock"
+  | "custom"
   | "mistral"
   | "openai"
   | "openrouter"
@@ -206,15 +207,16 @@ export interface BedrockCredentials {
   "session-token"?: string | null;
 }
 
-export interface AzureCredentials {
+/** Azure and the custom OpenAI-compatible provider both authenticate with a key and a base URL. */
+export interface KeyAndUrlCredentials {
   "api-key"?: string | null;
   "base-url"?: string | null;
 }
 
 /** One permissive map mirroring the backend's request schema: Bedrock sends AWS key
- * material, Azure sends an API key and base URL. */
+ * material, Azure and custom send an API key and base URL. */
 export interface MetabotCredentials
-  extends BedrockCredentials, AzureCredentials {}
+  extends BedrockCredentials, KeyAndUrlCredentials {}
 
 export interface MetabotSettingsResponse {
   value: string | null;

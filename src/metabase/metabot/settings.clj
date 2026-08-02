@@ -106,7 +106,7 @@
 
 (def ^:private direct-providers
   "Providers that can be used directly (not via the metabase/ proxy prefix)."
-  #{"anthropic" "azure" "bedrock" "mistral" "openai" "openrouter" "zai"})
+  #{"anthropic" "azure" "bedrock" "custom" "mistral" "openai" "openrouter" "zai"})
 
 (def ^:private default-anthropic-llm-metabot-model
   "Default Anthropic model used for Metabot when no explicit model is selected."
@@ -294,15 +294,20 @@
 (defn configured-provider-credentials
   "Returns the configured credentials map for the given provider, or nil if unrecognized or unconfigured.
 
-  The shape of the map varies by provider: API-key providers return `{:api-key ...}`, Azure returns `:api-key` and
-  `:base-url` from the `llm-azure-*` settings, and Bedrock returns `:access-key-id`, `:secret-access-key`,
-  `:session-token`, and `:region` from the `llm-bedrock-*` settings. Azure counts as configured only when both the
-  API key and base URL are set; Bedrock only when both the access key ID and secret access key are set."
+  The shape of the map varies by provider: API-key providers return `{:api-key ...}`, Azure and the custom
+  OpenAI-compatible provider return `:api-key` and `:base-url` from their `llm-azure-*`/`llm-custom-*` settings, and
+  Bedrock returns `:access-key-id`, `:secret-access-key`, `:session-token`, and `:region` from the `llm-bedrock-*`
+  settings. Azure and custom count as configured only when both the API key and base URL are set; Bedrock only when
+  both the access key ID and secret access key are set."
   [provider]
   (case provider
     "anthropic"  (configured-api-key-credentials (llm.settings/llm-anthropic-api-key))
     "azure"      (let [api-key  (non-blank (llm.settings/llm-azure-api-key))
                        base-url (non-blank (llm.settings/llm-azure-api-base-url))]
+                   (when (and api-key base-url)
+                     {:api-key api-key :base-url base-url}))
+    "custom"     (let [api-key  (non-blank (llm.settings/llm-custom-api-key))
+                       base-url (non-blank (llm.settings/llm-custom-api-base-url))]
                    (when (and api-key base-url)
                      {:api-key api-key :base-url base-url}))
     "bedrock"    (when (llm.settings/llm-bedrock-configured?)
@@ -318,15 +323,15 @@
 
 (defn provider-credentials-complete?
   "Whether a credentials map carries everything `provider` needs to make requests: both the AWS access key ID and
-  secret access key for Bedrock, both the API key and base URL for Azure, an `:api-key` for the other direct
-  providers."
+  secret access key for Bedrock, both the API key and base URL for Azure and the custom OpenAI-compatible provider,
+  an `:api-key` for the other direct providers."
   [provider credentials]
   (boolean
    (case provider
-     "bedrock" (and (non-blank (:access-key-id credentials))
-                    (non-blank (:secret-access-key credentials)))
-     "azure"   (and (non-blank (:api-key credentials))
-                    (non-blank (:base-url credentials)))
+     "bedrock"           (and (non-blank (:access-key-id credentials))
+                              (non-blank (:secret-access-key credentials)))
+     ("azure" "custom")  (and (non-blank (:api-key credentials))
+                              (non-blank (:base-url credentials)))
      (non-blank (:api-key credentials)))))
 
 (defn- llm-provider-configured?

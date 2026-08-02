@@ -671,31 +671,42 @@
           (metabot.settings/configured-provider-credentials "bedrock")
           bedrock-credential-fields))
 
-(defn- effective-azure-credentials
-  "The Azure credentials a settings request resolves to.
+(defn- saved-key-and-url
+  "The saved API key and base URL of a provider whose credentials are that pair: Azure and the custom
+  OpenAI-compatible provider."
+  [provider]
+  (case provider
+    "azure"  {:api-key  (llm.settings/llm-azure-api-key)
+              :base-url (llm.settings/llm-azure-api-base-url)}
+    "custom" {:api-key  (llm.settings/llm-custom-api-key)
+              :base-url (llm.settings/llm-custom-api-base-url)}))
 
-  Non-blank request fields are layered over the saved `llm-azure-*` settings, so e.g. a key-only rotation keeps the
-  saved base URL. The settings are read individually (not via the all-or-nothing configured-credentials map) so a
+(defn- effective-key-and-url-credentials
+  "The credentials a settings request resolves to for a key-and-base-URL provider (Azure, custom).
+
+  Non-blank request fields are layered over the saved settings, so e.g. a key-only rotation keeps the saved base
+  URL. The settings are read individually (not via the all-or-nothing configured-credentials map) so a
   partially-configured or env-set field still participates in layering — completeness is the caller's check. The
   base URL is normalized the same way its setter normalizes it (whitespace/trailing-slash trim) so the validation
   round-trip exercises exactly what would be persisted."
-  [{:keys [api-key base-url]}]
-  {:api-key  (or (non-blank-string api-key)
-                 (non-blank-string (llm.settings/llm-azure-api-key)))
-   :base-url (or (llm.settings/normalize-llm-base-url base-url)
-                 (llm.settings/normalize-llm-base-url (llm.settings/llm-azure-api-base-url)))})
+  [provider {:keys [api-key base-url]}]
+  (let [saved (saved-key-and-url provider)]
+    {:api-key  (or (non-blank-string api-key)
+                   (non-blank-string (:api-key saved)))
+     :base-url (or (llm.settings/normalize-llm-base-url base-url)
+                   (llm.settings/normalize-llm-base-url (:base-url saved)))}))
 
 (defn- request-credentials
   "The credentials override carried by a `PUT /api/metabot/settings` request body as a provider credentials map.
 
   nil when the request does not touch credentials for `provider`.
 
-  An explicitly nil credential field in the body — `:api-key` for API-key providers, `:credentials` for Bedrock and
-  Azure — resolves to a credentials map whose key material is nil: an explicit clear. Fields *inside* the Bedrock
-  credentials map follow that map's presence contract (see [[effective-bedrock-credentials]]); blank fields *inside*
-  the Azure credentials map mean \"keep the saved value\" (see [[effective-azure-credentials]]), so e.g. a key-only
-  rotation can't wipe the base URL. Throws a 400 when non-nil Bedrock/Azure credentials don't resolve to a complete
-  set."
+  An explicitly nil credential field in the body — `:api-key` for API-key providers, `:credentials` for Bedrock,
+  Azure and custom — resolves to a credentials map whose key material is nil: an explicit clear. Fields *inside* the
+  Bedrock credentials map follow that map's presence contract (see [[effective-bedrock-credentials]]); blank fields
+  *inside* the Azure/custom credentials map mean \"keep the saved value\" (see
+  [[effective-key-and-url-credentials]]), so e.g. a key-only rotation can't wipe the base URL. Throws a 400 when
+  non-nil Bedrock/Azure/custom credentials don't resolve to a complete set."
   [provider {:keys [api-key credentials] :as body}]
   (case provider
     "bedrock"
@@ -714,14 +725,16 @@
                                                         [:access-key-id :secret-access-key]))})))
           creds)))
 
-    "azure"
+    ("azure" "custom")
     (when (contains? body :credentials)
       (if (nil? credentials)
         {:api-key  nil
          :base-url nil}
-        (let [creds (effective-azure-credentials credentials)]
+        (let [creds (effective-key-and-url-credentials provider credentials)]
           (when-not (metabot.settings/provider-credentials-complete? provider creds)
-            (throw (ex-info (tru "Azure credentials are incomplete.")
+            (throw (ex-info (if (= provider "azure")
+                              (tru "Azure credentials are incomplete.")
+                              (tru "Custom provider credentials are incomplete."))
                             {:status-code  400
                              :api-error    true
                              :missing-keys (vec (remove #(non-blank-string (get creds %))
@@ -754,19 +767,27 @@
                     {:status-code 400
                      :setting     setting-key}))))
 
-(defn- save-azure-credentials!
-  "Persist an Azure credentials map resolved by [[request-credentials]]; nil values clear those settings."
-  [{:keys [api-key base-url]}]
-  (setting/set! :llm-azure-api-key api-key)
-  (setting/set! :llm-azure-api-base-url base-url))
+(defn- key-and-url-setting-keys
+  "The `[api-key-setting base-url-setting]` pair a key-and-base-URL provider (Azure, custom) persists to."
+  [provider]
+  (case provider
+    "azure"  [:llm-azure-api-key :llm-azure-api-base-url]
+    "custom" [:llm-custom-api-key :llm-custom-api-base-url]))
+
+(defn- save-key-and-url-credentials!
+  "Persist an Azure/custom credentials map resolved by [[request-credentials]]; nil values clear those settings."
+  [provider {:keys [api-key base-url]}]
+  (let [[key-setting url-setting] (key-and-url-setting-keys provider)]
+    (setting/set! key-setting api-key)
+    (setting/set! url-setting base-url)))
 
 (defn- save-credentials!
   "Persist the credentials override resolved by [[request-credentials]]; nil leaves the saved settings untouched."
   [provider credentials]
   (when credentials
     (case provider
-      "bedrock" (save-bedrock-credentials! credentials)
-      "azure"   (save-azure-credentials! credentials)
+      "bedrock"          (save-bedrock-credentials! credentials)
+      ("azure" "custom") (save-key-and-url-credentials! provider credentials)
       (setting/set! (provider-api-key-setting-key provider) (:api-key credentials)))))
 
 (defn- credential-setting-keys
@@ -777,9 +798,9 @@
   is guarded only then; the other fields are always written."
   [provider credentials]
   (case provider
-    "bedrock" (cond-> [:llm-bedrock-access-key-id :llm-bedrock-secret-access-key :llm-bedrock-session-token]
-                (contains? credentials :region) (conj :llm-bedrock-region))
-    "azure"   [:llm-azure-api-key :llm-azure-api-base-url]
+    "bedrock"          (cond-> [:llm-bedrock-access-key-id :llm-bedrock-secret-access-key :llm-bedrock-session-token]
+                         (contains? credentials :region) (conj :llm-bedrock-region))
+    ("azure" "custom") (key-and-url-setting-keys provider)
     [(provider-api-key-setting-key provider)]))
 
 (api.macros/defendpoint :put "/settings"
@@ -814,6 +835,12 @@
                                                :provider    provider})))
                             (when model
                               (metabot.settings/validate-azure-model! (str provider "/" model) model)))
+        ;; Same for custom: the model is free text with no default, so a connect must carry one.
+        _                 (when (and (= provider "custom") provider-changed? (nil? model))
+                            (throw (ex-info (tru "A model name is required to connect a custom provider.")
+                                            {:status-code 400
+                                             :api-error   true
+                                             :provider    provider})))
         ;; Reject writes to env-shadowed settings before verifying or persisting anything: guard every
         ;; credential setting a save would touch (see [[credential-setting-keys]]), plus the
         ;; provider/model setting whenever a provider/model write would happen.
