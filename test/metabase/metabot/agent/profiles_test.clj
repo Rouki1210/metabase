@@ -84,10 +84,20 @@
         (is (contains? (tool-names profile) "static_viz"))
         (is (contains? (tool-names profile) "create_alert"))
         (is (contains? (tool-names profile) "create_dashboard_subscription"))))
+    (testing "retrieves feature_store profile"
+      (let [profile (profiles/get-profile :feature_store)]
+        (is (some? profile))
+        (is (= :feature_store (:name profile)))
+        (is (= 5 (:max-iterations profile)))
+        (is (= 0.1 (:temperature profile)))
+        (is (= #{"query_feature_store" "read_resource"} (tool-names profile)))
+        (is (= [:feature-store-query] (:always-on-skills profile)))
+        (testing "not terminal — the model needs an iteration after the tool call to relay the answer"
+          (is (nil? (:terminal-tools profile))))))
     (testing "returns nil for unknown profile"
       (is (nil? (profiles/get-profile :unknown-profile))))
     (testing "all profiles have required keys"
-      (doseq [profile-id [:embedding_next :internal :transforms_codegen :sql :nlq :slackbot]]
+      (doseq [profile-id [:embedding_next :internal :transforms_codegen :sql :nlq :slackbot :feature_store]]
         (let [profile (profiles/get-profile profile-id)]
           (is (= profile-id (:name profile)))
           (is (contains? profile :model))

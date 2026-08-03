@@ -17,6 +17,7 @@
    [metabase.metabot.tools.create-dashboard-subscription :as tools.create-dashboard-subscription]
    [metabase.metabot.tools.document :as tools.document]
    [metabase.metabot.tools.entity-retrieval :as tools.entity-retrieval]
+   [metabase.metabot.tools.feature-store :as tools.feature-store]
    [metabase.metabot.tools.metadata :as tools.metadata]
    [metabase.metabot.tools.resources :as tools.resources]
    [metabase.metabot.tools.save-entity :as tools.save-entity]
@@ -91,6 +92,8 @@
   create-alert-tool]
  [tools.create-dashboard-subscription
   slackbot-create-dashboard-subscription-tool]
+ [tools.feature-store
+  query-feature-store-tool]
  [tools.skills
   load-skill-tool])
 
@@ -111,7 +114,7 @@
     "create_sql_query" "edit_sql_query" "replace_sql_query" "construct_notebook_query"
     "document_schema_collect" "document_construct_sql_chart" "document_construct_model_chart"
     "create_alert" "create_dashboard_subscription" "static_viz"
-    "read_resource"})
+    "read_resource" "query_feature_store"})
 
 (defn- wrap-with-scope-check
   "Wrap a tool function with a scope check. Returns a function that checks

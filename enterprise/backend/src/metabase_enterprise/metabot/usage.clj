@@ -37,7 +37,8 @@
     "sql"
     "slackbot"
     "transforms_codegen"
-    "document-generate-content"})
+    "document-generate-content"
+    "feature_store"})
 
 (defenterprise valid-usage-profile-id
   "Return `profile-id` when it can be persisted to `ai_usage_log`, otherwise nil."

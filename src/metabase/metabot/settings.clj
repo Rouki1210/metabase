@@ -86,6 +86,32 @@
   :feature    :ai-controls
   :doc        false)
 
+;;; Feature store agent — the `:feature_store` profile delegates to an external service that owns the
+;;; routing/retrieval/validation pipeline. All three settings must be set for the profile to work.
+
+(defsetting feature-store-agent-url
+  (deferred-tru "Base URL of the Feature Store Query Agent service, e.g. http://feature-agent:8000.")
+  :type       :string
+  :visibility :admin
+  :encryption :no
+  :export?    false
+  :doc        false)
+
+(defsetting feature-store-agent-timeout-ms
+  (deferred-tru "Request timeout in milliseconds for Feature Store Query Agent calls.")
+  :type       :integer
+  :default    30000
+  :visibility :admin
+  :export?    false
+  :doc        false)
+
+(defsetting feature-store-database-id
+  (deferred-tru "Metabase database ID of the feature store. Used to permission-check the user and to build the query card.")
+  :type       :integer
+  :visibility :admin
+  :export?    false
+  :doc        false)
+
 (defsetting embedded-metabot-enabled?
   (deferred-tru "Whether Metabot is enabled for embedding.")
   :type       :boolean

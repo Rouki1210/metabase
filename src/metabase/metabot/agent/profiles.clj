@@ -211,6 +211,25 @@
                     #'tools/document-construct-model-chart-tool
                     #'tools/document-construct-sql-chart-tool]})
 
+;; The decision pipeline (routing, retrieval over an approved feature catalog, join planning, SQL
+;; validation, execution) lives in an external service behind `query_feature_store`. This profile is
+;; deliberately narrow: the model relays the question and relays the answer, and that's the whole job.
+;; `read_resource` is here to explain what the data *is*, not to assemble a query around a refusal —
+;; a soft constraint carried by the prompt and skill. If it turns out to be worked around in practice,
+;; dropping it is a one-line change that leaves a single-tool profile.
+;; Low temperature for the same reason: there is nothing here worth being creative about.
+(register-profile!
+ {:name             :feature_store
+  :prompt-template  "feature-store.selmer"
+  :max-iterations   5
+  :temperature      0.1
+  ;; Relevant on essentially every turn, so inline it rather than spend an iteration on `load_skill`.
+  :always-on-skills [:feature-store-query]
+  ;; No `:terminal-tools` on purpose: a terminal call ends the turn immediately, and this profile
+  ;; needs the iteration *after* the tool call to relay the service's answer to the user.
+  :tools            [#'tools/query-feature-store-tool
+                     #'tools/read-resource-tool]})
+
 (register-profile!
  {:name            :slackbot
   :prompt-template "slackbot.selmer"

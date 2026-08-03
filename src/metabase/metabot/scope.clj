@@ -108,6 +108,10 @@
 (api-scope/defscope agent-metadata-read "agent:metadata:read"
   (deferred-tru "View database metadata"))
 
+;; Feature store (external agent service)
+(api-scope/defscope agent-feature-store-query "agent:feature-store:query"
+  (deferred-tru "Query the feature store agent"))
+
 ;; Resource
 (api-scope/defscope agent-resource-read "agent:resource:read"
   (deferred-tru "View resources"))
