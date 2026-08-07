@@ -62,6 +62,7 @@ import type {
   MetabotAgentId,
   MetabotAgentTurnDisplayError,
   MetabotAgentTurnError,
+  MetabotAgentTurnStatsMessage,
   MetabotUserChatMessage,
   SlashCommand,
 } from "./types";
@@ -510,6 +511,8 @@ export const sendAgentRequest = createAsyncThunk<
       getMetabotConversationTitle(getState(), agentId),
     );
 
+    const turnStartedAtMs = Date.now();
+
     try {
       // store error object streamed across the wire
       let streamedError: MetabotAgentTurnError | undefined;
@@ -745,6 +748,16 @@ export const sendAgentRequest = createAsyncThunk<
             : undefined,
         });
       }
+
+      // spread rather than an inline literal: `addAgentMessage`'s payload type
+      // collapses the message union down to its common keys, so a fresh literal
+      // trips excess-property checking (hence the `as any` at the other sites)
+      const turnStats: Omit<MetabotAgentTurnStatsMessage, "id" | "role"> = {
+        type: "turn_stats",
+        latencyMs: Date.now() - turnStartedAtMs,
+        usage: response.messageMetadata?.usage,
+      };
+      dispatchToConvo(addAgentMessage({ ...turnStats, agentId }));
 
       const shouldPollForTitle =
         !receivedTitle &&

@@ -35,7 +35,9 @@ RUN git config --global --add safe.directory /home/node
 RUN npm install -g bun
 
 # install frontend dependencies
-RUN bun install --frozen-lockfile
+# Cypress is an E2E-test-only dep; its postinstall pulls a ~250MB binary that
+# regularly truncates mid-download and fails the build. The image never runs Cypress.
+RUN CYPRESS_INSTALL_BINARY=0 bun install --frozen-lockfile
 
 RUN INTERACTIVE=false CI=true SKIP_EMBEDDING_SDK=$SKIP_EMBEDDING_SDK MB_EDITION=$MB_EDITION bin/build.sh :version ${VERSION}
 

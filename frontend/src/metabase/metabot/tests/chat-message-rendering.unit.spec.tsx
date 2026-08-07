@@ -86,6 +86,66 @@ describe("AgentMessage", () => {
     ).not.toBeInTheDocument();
   });
 
+  describe("turn_stats", () => {
+    const conversation: MetabotChatMessage[] = [
+      { id: "u1", role: "user", type: "text", message: "hi" },
+      { id: "a1", role: "agent", type: "text", message: "hello" },
+      {
+        id: "s1",
+        role: "agent",
+        type: "turn_stats",
+        latencyMs: 2430,
+        usage: { inputTokens: 4916, outputTokens: 8, totalTokens: 4924 },
+      },
+    ];
+
+    it("shows latency and token counts in debug mode", () => {
+      renderWithProviders(
+        <Messages
+          messages={conversation}
+          isDoingScience={false}
+          debug
+          conversationId="convo-1"
+        />,
+      );
+
+      expect(screen.getByTestId("metabot-turn-stats")).toHaveTextContent(
+        "2.4s · 4,924 tokens (in 4,916 / out 8)",
+      );
+    });
+
+    it("is hidden outside debug mode", () => {
+      renderWithProviders(
+        <Messages
+          messages={conversation}
+          isDoingScience={false}
+          debug={false}
+          conversationId="convo-1"
+        />,
+      );
+
+      expect(
+        screen.queryByTestId("metabot-turn-stats"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("keeps the action bar on the answer it follows", async () => {
+      renderWithProviders(
+        <Messages
+          messages={conversation}
+          isDoingScience={false}
+          debug
+          conversationId="convo-1"
+        />,
+      );
+
+      const [, agentMessage] = screen.getAllByTestId("metabot-chat-message");
+      expect(
+        within(agentMessage).getByTestId("metabot-chat-message-copy"),
+      ).toBeInTheDocument();
+    });
+  });
+
   describe("feedback controls", () => {
     const conversation: MetabotChatMessage[] = [
       { id: "u1", role: "user", type: "text", message: "hi" },

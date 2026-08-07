@@ -2,6 +2,7 @@ import type {
   KnownDataPart,
   SearchResultItem,
 } from "metabase/api/ai-streaming/schemas";
+import type { TokenUsage } from "metabase/api/ai-streaming/sse-types";
 import type { MetabotProfileId } from "metabase/metabot/constants";
 import type {
   MetabotCodeEdit,
@@ -109,6 +110,20 @@ export type MetabotAgentChainOfThoughtMessage = {
   endedAtMs?: number;
 };
 
+/**
+ * Debug-only footer for a completed turn. `latencyMs` is measured client-side
+ * (request sent → stream closed), so it includes network time the backend's own
+ * spans don't see. `usage` is the turn's cumulative token count off the trailing
+ * `finish` chunk's messageMetadata.
+ */
+export type MetabotAgentTurnStatsMessage = {
+  id: string;
+  role: "agent";
+  type: "turn_stats";
+  latencyMs: number;
+  usage?: TokenUsage;
+};
+
 export type MetabotAgentChatMessage =
   | MetabotAgentTextChatMessage
   | MetabotAgentDataPartMessage
@@ -116,7 +131,8 @@ export type MetabotAgentChatMessage =
   | MetabotAgentChainOfThoughtMessage
   | MetabotAgentTurnAbortedMessage
   | MetabotAgentTurnErroredMessage
-  | MetabotAgentTurnInProgressMessage;
+  | MetabotAgentTurnInProgressMessage
+  | MetabotAgentTurnStatsMessage;
 
 export type MetabotUserChatMessage = MetabotUserTextChatMessage;
 

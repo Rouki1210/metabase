@@ -16,6 +16,7 @@ import {
   type MetabotAgentTextChatMessage,
   type MetabotAgentTurnError,
   type MetabotAgentTurnErroredMessage,
+  type MetabotAgentTurnStatsMessage,
   type MetabotChatMessage,
   type MetabotDataPart,
   type MetabotDebugToolCallMessage,
@@ -81,10 +82,13 @@ const isUserVisibleMessage = (message: MetabotChatMessage): boolean =>
     .with({ type: "turn_aborted" }, () => true)
     .with({ type: "turn_errored" }, () => true)
     .with({ type: "turn_in_progress" }, () => false)
+    .with({ type: "turn_stats" }, () => false)
     .exhaustive();
 
 const isConversationContent = (message: MetabotChatMessage) =>
-  !isChainOfThoughtMessage(message) && message.type !== "tool_call";
+  !isChainOfThoughtMessage(message) &&
+  message.type !== "tool_call" &&
+  message.type !== "turn_stats";
 
 interface BaseMessageProps extends Omit<FlexProps, "onCopy"> {
   message: MetabotChatMessage;
@@ -282,6 +286,7 @@ export const AgentMessage = ({
             data-testid="metabot-response-loader"
           />
         ))
+        .with({ type: "turn_stats" }, (m) => <AgentTurnStats message={m} />)
         .exhaustive()}
       {!hideActions && (
         <Flex className={Styles.messageActions} align="center">
@@ -350,6 +355,31 @@ export const AgentMessage = ({
         </Flex>
       )}
     </MessageContainer>
+  );
+};
+
+const AgentTurnStats = ({
+  message,
+}: {
+  message: MetabotAgentTurnStatsMessage;
+}) => {
+  const { latencyMs, usage } = message;
+  const seconds = (latencyMs / 1000).toFixed(1);
+  const total = usage?.totalTokens.toLocaleString() ?? "";
+  const input = usage?.inputTokens.toLocaleString() ?? "";
+  const output = usage?.outputTokens.toLocaleString() ?? "";
+
+  return (
+    <Text
+      fz="xs"
+      c="text-secondary"
+      ff="monospace"
+      data-testid="metabot-turn-stats"
+    >
+      {usage
+        ? t`${seconds}s · ${total} tokens (in ${input} / out ${output})`
+        : t`${seconds}s`}
+    </Text>
   );
 };
 
@@ -636,6 +666,7 @@ export const Messages = ({
               }
               hideActions={
                 isChainOfThoughtMessage(message) ||
+                message.type === "turn_stats" ||
                 nextContent?.role === "agent" ||
                 (isDoingScience && !nextContent)
               }
