@@ -99,22 +99,7 @@ describe("AgentMessage", () => {
       },
     ];
 
-    it("shows latency and token counts in debug mode", () => {
-      renderWithProviders(
-        <Messages
-          messages={conversation}
-          isDoingScience={false}
-          debug
-          conversationId="convo-1"
-        />,
-      );
-
-      expect(screen.getByTestId("metabot-turn-stats")).toHaveTextContent(
-        "2.4s · 4,924 tokens (in 4,916 / out 8)",
-      );
-    });
-
-    it("is hidden outside debug mode", () => {
+    it("shows latency and token counts", () => {
       renderWithProviders(
         <Messages
           messages={conversation}
@@ -124,9 +109,28 @@ describe("AgentMessage", () => {
         />,
       );
 
-      expect(
-        screen.queryByTestId("metabot-turn-stats"),
-      ).not.toBeInTheDocument();
+      expect(screen.getByTestId("metabot-turn-stats")).toHaveTextContent(
+        "2.4s · 4,924 tokens (in 4,916 / out 8)",
+      );
+    });
+
+    it("falls back to latency alone when the turn reported no usage", () => {
+      renderWithProviders(
+        <Messages
+          messages={[
+            conversation[0],
+            conversation[1],
+            { id: "s2", role: "agent", type: "turn_stats", latencyMs: 900 },
+          ]}
+          isDoingScience={false}
+          debug={false}
+          conversationId="convo-1"
+        />,
+      );
+
+      expect(screen.getByTestId("metabot-turn-stats")).toHaveTextContent(
+        "0.9s",
+      );
     });
 
     it("keeps the action bar on the answer it follows", async () => {
@@ -134,7 +138,7 @@ describe("AgentMessage", () => {
         <Messages
           messages={conversation}
           isDoingScience={false}
-          debug
+          debug={false}
           conversationId="convo-1"
         />,
       );

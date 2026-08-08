@@ -82,7 +82,7 @@ const isUserVisibleMessage = (message: MetabotChatMessage): boolean =>
     .with({ type: "turn_aborted" }, () => true)
     .with({ type: "turn_errored" }, () => true)
     .with({ type: "turn_in_progress" }, () => false)
-    .with({ type: "turn_stats" }, () => false)
+    .with({ type: "turn_stats" }, () => true)
     .exhaustive();
 
 const isConversationContent = (message: MetabotChatMessage) =>

@@ -111,7 +111,7 @@ export type MetabotAgentChainOfThoughtMessage = {
 };
 
 /**
- * Debug-only footer for a completed turn. `latencyMs` is measured client-side
+ * Footer under a completed turn. `latencyMs` is measured client-side
  * (request sent → stream closed), so it includes network time the backend's own
  * spans don't see. `usage` is the turn's cumulative token count off the trailing
  * `finish` chunk's messageMetadata.
