@@ -114,6 +114,39 @@ describe("AgentMessage", () => {
       );
     });
 
+    it("shows cache counters only when the provider cached something", () => {
+      const withCache: MetabotChatMessage[] = [
+        conversation[0],
+        conversation[1],
+        {
+          id: "s3",
+          role: "agent",
+          type: "turn_stats",
+          latencyMs: 2430,
+          usage: {
+            inputTokens: 4916,
+            outputTokens: 8,
+            totalTokens: 4924,
+            cacheReadTokens: 4100,
+            cacheCreationTokens: 0,
+          },
+        },
+      ];
+
+      renderWithProviders(
+        <Messages
+          messages={withCache}
+          isDoingScience={false}
+          debug={false}
+          conversationId="convo-1"
+        />,
+      );
+
+      const stats = screen.getByTestId("metabot-turn-stats");
+      expect(stats).toHaveTextContent("cache read 4,100");
+      expect(stats).not.toHaveTextContent("cache write");
+    });
+
     it("falls back to latency alone when the turn reported no usage", () => {
       renderWithProviders(
         <Messages

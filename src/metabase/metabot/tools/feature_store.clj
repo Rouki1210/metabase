@@ -43,13 +43,21 @@
    "Tell the user this request is out of scope and why."
    "Do NOT attempt the request another way — `read_resource` is not a workaround for a refusal."))
 
-(defn- stage-ms
-  "Per-stage durations pulled out of the service's `pipeline_trace`, as {stage-name ms}.
-  The service already times every stage for its own audit log, so this is the whole 9-stage breakdown
-  for free — no extra field needed on its side. Stages that report no `duration_ms` are dropped."
+(def ^:private stage-cost-keys
+  "The `pipeline_trace` fields worth logging. An allowlist rather than \"everything but `:stage`\":
+  stages also carry the retrieved features and the generated SQL, and spans reach the logs."
+  [:duration_ms :tokens_in :tokens_out])
+
+(defn- stage-stats
+  "Per-stage cost pulled out of the service's `pipeline_trace`, as {stage-name {field value}}.
+  The service already times every stage for its own audit log, so the 9-stage latency breakdown is
+  free; `tokens_in`/`tokens_out` are the same idea for spend, and cost the service one field per stage
+  since it has the numbers from its own LLM calls anyway. Fields it omits are simply absent, and a
+  stage reporting none of them is dropped."
   [pipeline-trace]
-  (into {} (keep (fn [{:keys [stage duration_ms]}]
-                   (when duration_ms [stage duration_ms])))
+  (into {} (keep (fn [{:keys [stage] :as s}]
+                   (let [cost (select-keys s stage-cost-keys)]
+                     (when (seq cost) [stage cost]))))
         pipeline-trace))
 
 (defn- config-error
@@ -84,15 +92,16 @@
                                     :socket-timeout     timeout
                                     :connection-timeout timeout}))]
         ;; One string attribute rather than a nested map: span attributes are only reliably primitives,
-        ;; and this lands in the log line either way. `stage-ms` is the service's own per-stage
-        ;; breakdown — it's what makes the double-execution question answerable.
+        ;; and this lands in the log line either way. `stages` is the service's own per-stage
+        ;; latency + token breakdown — where the turn's real spend is, since Metabase's own two LLM
+        ;; calls never see the rows or the SQL.
         (deliver outcome (pr-str {:status       (:status body)
                                   :refusal-code (:refusal_code body)
                                   :has-sql      (boolean (:sql body))
                                   :coverage     (:coverage body)
                                   :repairs      (:repairs body)
                                   :error        (:error body)
-                                  :stage-ms     (stage-ms (:pipeline_trace body))}))
+                                  :stages       (stage-stats (:pipeline_trace body))}))
         body))))
 
 (defn- refusal-result

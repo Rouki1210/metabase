@@ -299,9 +299,16 @@
   `tracking-opts` is a map with analytics context for prometheus and snowplow events. See [[report-token-usage-xf]]
   above for details.
 
-  `llm-opts` is an optional map of provider-facing call options. Currently this
-  supports `:tool-choice`, used by profiles like `:sql` that must end in a tool
-  call instead of plain assistant text.
+  `llm-opts` is an optional map of provider-facing call options, forwarded to the adapter as
+  [[metabase.metabot.self.core/LLMRequestOpts]]:
+    `:tool-choice` - used by profiles like `:sql` that must end in a tool call instead of plain
+                     assistant text.
+    `:temperature` - sampling temperature.
+    `:reasoning?`  - false suppresses thinking and strips reasoning replay.
+    `:max-tokens`  - output token budget.
+
+  Only the keys destructured here reach the adapter — an option a caller sets but this arity does
+  not name is dropped without a warning.
 
   Returns a reducible that, when consumed, traces the full LLM round-trip
   (HTTP call + streaming response) as an OTel span. Retries transient errors
@@ -309,7 +316,8 @@
   exponential backoff, matching the Python ai-service retry behavior."
   ([provider-and-model system-msg parts tools tracking-opts]
    (call-llm provider-and-model system-msg parts tools tracking-opts nil))
-  ([provider-and-model system-msg parts tools tracking-opts {:keys [tool-choice]}]
+  ([provider-and-model system-msg parts tools tracking-opts
+    {:keys [tool-choice temperature reasoning? max-tokens]}]
    (if-let [limit-msg (usage/check-usage-limits!)]
      (reify clojure.lang.IReduceInit
        (reduce [_ rf init]
@@ -321,6 +329,10 @@
              streaming-opts (cond-> {:model model :input parts :tools (vals tools) :ai-proxy? ai-proxy?}
                               system-msg                    (assoc :system system-msg)
                               (and (seq tools) tool-choice) (assoc :tool_choice tool-choice)
+                              temperature                   (assoc :temperature temperature)
+                              max-tokens                    (assoc :max-tokens max-tokens)
+                              ;; `some?`: `false` is the meaningful value here, not a missing one
+                              (some? reasoning?)            (assoc :reasoning? reasoning?)
                               (:session-id tracking-opts)   (assoc :prompt-cache-key (:session-id tracking-opts)))
              make-source    (fn []
                               (eduction (comp (core/tool-executor-xf tools)

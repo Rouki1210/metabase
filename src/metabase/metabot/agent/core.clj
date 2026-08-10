@@ -242,8 +242,15 @@
         system-msg   (messages/build-system-message context profile tools)
         input-parts  (-> (messages/build-message-history context memory)
                          (invert-links @link-registry-atom))
+        ;; Everything the profile wants to say about the call itself travels through `llm-opts`;
+        ;; `self/call-llm` forwards only the keys it destructures, so a key added here must be
+        ;; added there too or it is silently dropped (which is what happened to `:temperature`).
         llm-opts     (cond-> {}
-                       (:required-tool-call? profile) (assoc :tool-choice "required"))]
+                       (:required-tool-call? profile) (assoc :tool-choice "required")
+                       (:temperature profile)         (assoc :temperature (:temperature profile))
+                       (:max-tokens profile)          (assoc :max-tokens (:max-tokens profile))
+                       ;; `some?`, not truthiness: `false` is the whole point of this option.
+                       (some? (:reasoning? profile))  (assoc :reasoning? (:reasoning? profile)))]
     (when *debug-log*
       (debug-log! {:iteration iteration
                    :phase     :request

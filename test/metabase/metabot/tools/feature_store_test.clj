@@ -29,6 +29,20 @@
                                       feature-store-agent-timeout-ms 30000]
      ~@body))
 
+(deftest stage-stats-test
+  (testing "per-stage cost is forwarded field-by-field, and prompt/SQL payloads are never logged"
+    (is (= {"retriever" {:duration_ms 12 :tokens_in 1840 :tokens_out 90}
+            "generator" {:duration_ms 2180 :tokens_out 310}
+            "validator" {:duration_ms 4}}
+           (#'feature-store/stage-stats
+            [{:stage "retriever" :duration_ms 12 :tokens_in 1840 :tokens_out 90
+              :retrieved_features ["gsm_spend_90d"]}
+             ;; a stage may report only some of the fields
+             {:stage "generator" :duration_ms 2180 :tokens_out 310 :sql "SELECT 1"}
+             {:stage "validator" :duration_ms 4}
+             ;; nothing worth logging — dropped rather than logged as an empty map
+             {:stage "router"}])))))
+
 (deftest query-result-test
   (testing "a SQL-bearing response produces a card plus a verbatim-relay instruction"
     (mt/test-drivers #{:h2}

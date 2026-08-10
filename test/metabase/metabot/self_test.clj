@@ -90,6 +90,44 @@
                     (throw e))))
               (is (= expected (:tool_choice @captured))))))))))
 
+(deftest call-llm-sampling-opts-test
+  (testing "llm-opts set by a profile reach the provider request body"
+    ;; Regression guard for the silent-drop failure mode: `call-llm` forwards only the keys its
+    ;; arity destructures, so an option a profile sets but this fn does not name vanishes with no
+    ;; warning — which is exactly what happened to `:temperature` before this test existed.
+    (let [captured (atom nil)
+          call!    (fn [llm-opts]
+                     (reset! captured nil)
+                     ;; `:api-error true` makes `rethrow-api-error!` rethrow as-is, so `::skip`
+                     ;; survives on the outer ex-data.
+                     (mt/with-dynamic-fn-redefs [http/request (fn [opts]
+                                                                (when (:body opts)
+                                                                  (reset! captured (json/decode+kw (:body opts))))
+                                                                (throw (ex-info "stop" {::skip true :api-error true})))]
+                       (mt/with-temporary-setting-values [llm-anthropic-api-key "sk-ant-test-key"]
+                         (try
+                           (run! identity (self/call-llm "anthropic/claude-opus-4-8" nil [] {} {:tag "agent"} llm-opts))
+                           (catch Exception e
+                             (when-not (::skip (ex-data e))
+                               (throw e))))))
+                     @captured)]
+      (testing "control: a current-gen model thinks by default, and thinking raises the max_tokens floor"
+        (let [body (call! {:temperature 0.1})]
+          (is (some? (:thinking body)))
+          (is (= 16384 (:max_tokens body)))
+          (testing "sampling params are rejected alongside thinking, so temperature is dropped even
+                    though it was forwarded — this is why plumbing :temperature is close to a no-op
+                    on thinking models"
+            (is (nil? (:temperature body))))))
+      (testing ":reasoning? false suppresses thinking, and then temperature does reach the API"
+        (let [body (call! {:temperature 0.1 :reasoning? false :max-tokens 16384})]
+          (is (nil? (:thinking body)))
+          (is (= 0.1 (:temperature body)))
+          (testing "max-tokens must be carried explicitly — without thinking there is no 16384 floor"
+            (is (= 16384 (:max_tokens body))))))
+      (testing "without an explicit max-tokens, disabling thinking drops the budget to the 4096 default"
+        (is (= 4096 (:max_tokens (call! {:reasoning? false}))))))))
+
 (deftest call-llm-prompt-cache-key-test
   (testing "the conversation id (:session-id) is forwarded as the Mistral prompt_cache_key"
     (let [captured (atom nil)]

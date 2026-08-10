@@ -368,6 +368,12 @@ const AgentTurnStats = ({
   const total = usage?.totalTokens.toLocaleString() ?? "";
   const input = usage?.inputTokens.toLocaleString() ?? "";
   const output = usage?.outputTokens.toLocaleString() ?? "";
+  // cache counters are a subset of inputTokens; shown only when the provider
+  // actually cached something, so the common no-caching case stays uncluttered
+  const cacheRead = usage?.cacheReadTokens ?? 0;
+  const cacheWrite = usage?.cacheCreationTokens ?? 0;
+  const read = cacheRead.toLocaleString();
+  const written = cacheWrite.toLocaleString();
 
   return (
     <Text
@@ -379,6 +385,8 @@ const AgentTurnStats = ({
       {usage
         ? t`${seconds}s · ${total} tokens (in ${input} / out ${output})`
         : t`${seconds}s`}
+      {cacheRead > 0 && <> · {t`cache read ${read}`}</>}
+      {cacheWrite > 0 && <> · {t`cache write ${written}`}</>}
     </Text>
   );
 };

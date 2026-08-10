@@ -6,6 +6,12 @@ export type TokenUsage = {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  // prompt-cache counters, a subset of inputTokens. The backend always sends
+  // them (see metabase.metabot.self.core/->message-metadata); they are 0 when
+  // the provider does no caching, and optional here so fixtures can omit them.
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+  cachedInputTokens?: number;
 };
 
 export type MessageMetadata = {

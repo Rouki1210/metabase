@@ -53,7 +53,14 @@
   - :name - Keyword identifier for the profile (e.g. :internal)
   - :prompt-template - Selmer template name from resources/metabot/prompts/system/
   - :max-iterations - Maximum agent loop iterations
-  - :temperature - LLM temperature setting
+  - :temperature - LLM temperature setting. Note that Claude rejects sampling params alongside
+    thinking, so this only reaches the API on profiles/models where thinking is off.
+  - :reasoning? - Optional; false suppresses thinking/reasoning for this profile. Thinking tokens
+    bill as output and stream before the answer, so a profile that only relays a tool's result has
+    nothing to gain from them. **Set `:max-tokens` alongside it** — the 16384 floor in
+    [[metabase.metabot.self.claude/claude-request-body]] applies only when thinking is on, so
+    turning thinking off silently drops the budget to 4096 and truncates long replies.
+  - :max-tokens - Optional; output token budget for the profile.
   - :tools - Vector of tool vars (e.g. #'tools/search-tool)
   - :always-on-skills - Optional vector of skill ids (keywords) whose bodies are inlined into this
     profile's system prompt instead of being loaded on demand via `load_skill`. Always-on is a
@@ -73,7 +80,9 @@
                [:temperature :float]
                [:tools [:vector :any]]
                [:always-on-skills {:optional true} [:vector :keyword]]
-               [:terminal-tools {:optional true} [:set :string]]]]
+               [:terminal-tools {:optional true} [:set :string]]
+               [:reasoning? {:optional true} :boolean]
+               [:max-tokens {:optional true} :int]]]
   (let [tool-vars     (:tools profile)
         tool-name-seq (map #(:tool-name (meta %)) tool-vars)
         tool-names    (set tool-name-seq)]
@@ -223,6 +232,12 @@
   :prompt-template  "feature-store.selmer"
   :max-iterations   5
   :temperature      0.1
+  ;; Nothing here is worth thinking about either: the external service already decided what to
+  ;; answer, and thinking tokens bill as output and stream before the reply the user is waiting on.
+  :reasoning?       false
+  ;; Mandatory alongside `:reasoning? false` — the 16384 floor only applies when thinking is on, so
+  ;; without this the budget drops to the 4096 default and long relayed answers get truncated.
+  :max-tokens       16384
   ;; Relevant on essentially every turn, so inline it rather than spend an iteration on `load_skill`.
   :always-on-skills [:feature-store-query]
   ;; No `:terminal-tools` on purpose: a terminal call ends the turn immediately, and this profile

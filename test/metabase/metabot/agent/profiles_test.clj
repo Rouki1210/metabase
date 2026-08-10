@@ -92,6 +92,9 @@
         (is (= 0.1 (:temperature profile)))
         (is (= #{"query_feature_store" "read_resource"} (tool-names profile)))
         (is (= [:feature-store-query] (:always-on-skills profile)))
+        (testing "relay profile: no thinking, and an explicit budget so the reply isn't truncated"
+          (is (false? (:reasoning? profile)))
+          (is (= 16384 (:max-tokens profile))))
         (testing "not terminal — the model needs an iteration after the tool call to relay the answer"
           (is (nil? (:terminal-tools profile))))))
     (testing "returns nil for unknown profile"
