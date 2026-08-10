@@ -39,7 +39,12 @@ RUN npm install -g bun
 # regularly truncates mid-download and fails the build. The image never runs Cypress.
 RUN CYPRESS_INSTALL_BINARY=0 bun install --frozen-lockfile
 
-RUN INTERACTIVE=false CI=true SKIP_EMBEDDING_SDK=$SKIP_EMBEDDING_SDK MB_EDITION=$MB_EDITION bin/build.sh :version ${VERSION}
+# The Maven/gitlibs caches live on a BuildKit cache mount so a build killed mid-download (flaky
+# links sever these multi-MB transfers) resumes from what it already fetched instead of re-pulling
+# ~1GB of deps on every retry. Nothing from the mount ends up in the image.
+RUN --mount=type=cache,target=/root/.m2 \
+    --mount=type=cache,target=/root/.gitlibs \
+    INTERACTIVE=false CI=true SKIP_EMBEDDING_SDK=$SKIP_EMBEDDING_SDK MB_EDITION=$MB_EDITION bin/build.sh :version ${VERSION}
 
 # ###################
 # # STAGE 2: runner
