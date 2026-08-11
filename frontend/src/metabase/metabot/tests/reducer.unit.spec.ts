@@ -272,6 +272,33 @@ describe("metabot reducer", () => {
     });
   });
 
+  describe("resetConversation and the picked profile", () => {
+    it("keeps a picked profile", () => {
+      const store = createTestStore();
+      store.dispatch(
+        metabotActions.setProfileOverride({
+          agentId: "omnibot",
+          profile: "feature_store",
+        }),
+      );
+
+      store.dispatch(metabotActions.resetConversation({ agentId: "omnibot" }));
+
+      expect(
+        store.getState().metabot.conversations.omnibot?.profileOverride,
+      ).toBe("feature_store");
+    });
+
+    it("leaves an unpicked profile on the agent default", () => {
+      const store = createTestStore();
+      store.dispatch(metabotActions.resetConversation({ agentId: "omnibot" }));
+
+      expect(
+        store.getState().metabot.conversations.omnibot?.profileOverride,
+      ).toBeUndefined();
+    });
+  });
+
   describe("getRequestConversation", () => {
     it("should return undefined if no matching convo", () => {
       const state = createDraft(getMetabotInitialState());

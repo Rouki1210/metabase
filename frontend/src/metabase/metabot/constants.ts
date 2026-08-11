@@ -30,6 +30,11 @@ export const METABOT_PROFILES = {
       return t`Embedding`;
     },
   },
+  feature_store: {
+    get label() {
+      return t`Feature store`;
+    },
+  },
   nlq: {
     get label() {
       return t`NLQ`;
@@ -84,8 +89,18 @@ export const METABOT_PROFILE_OVERRIDES = {
   TRANSFORMS_CODEGEN: "transforms_codegen",
 } as const satisfies Record<string, MetabotProfileId | undefined>;
 
+/**
+ * Profiles a user may switch between in the chat panel. The rest are picked by
+ * the app itself from the screen you are on, or belong to a surface other than
+ * the chat panel, so offering them would only be a way to break the panel.
+ */
+export const PICKABLE_PROFILES: readonly MetabotProfileId[] = [
+  "internal",
+  "feature_store",
+];
+
 export const isHistoryEnabledProfile = (profile: string | undefined) =>
-  profile === undefined || profile === "nlq";
+  profile === undefined || profile === "nlq" || profile === "feature_store";
 
 export const resolveMetabotProfileId = (
   profile: MetabotProfileId | undefined,

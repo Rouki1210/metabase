@@ -402,6 +402,63 @@ describe("metabot > ui", () => {
     });
   });
 
+  describe("profile picker", () => {
+    const profilePicker = () => screen.findByTestId("metabot-profile-picker");
+
+    const pickProfile = async (label: string) => {
+      await userEvent.click(await profilePicker());
+      await userEvent.click(
+        await screen.findByRole("menuitem", { name: label }),
+      );
+    };
+
+    it("defaults to the internal assistant", async () => {
+      setup();
+      expect(await profilePicker()).toHaveTextContent("Internal");
+    });
+
+    it("sends the picked profile with the next message", async () => {
+      setup();
+      const agentSpy = mockAgentEndpoint({
+        stream: createMockSSEStream(whoIsYourFavoriteResponse),
+      });
+
+      await pickProfile("Feature store");
+      await enterChatMessage("Who is your favorite?");
+
+      const body = await lastReqBody(agentSpy);
+      expect(body.profile_id).toBe("feature_store");
+    });
+
+    it("keeps the picked profile when starting a new conversation", async () => {
+      setup();
+
+      await pickProfile("Feature store");
+      await userEvent.click(await newConversationButton());
+
+      expect(await profilePicker()).toHaveTextContent("Feature store");
+    });
+
+    it("is hidden on surfaces that pin their own profile", async () => {
+      const metabotInitialState = assocIn(
+        assocIn(
+          getMetabotInitialState(),
+          ["conversations", "omnibot", "visible"],
+          true,
+        ),
+        ["conversations", "omnibot", "profileOverride"],
+        "sql",
+      );
+
+      setup({ metabotInitialState });
+      await assertVisible();
+
+      expect(
+        screen.queryByTestId("metabot-profile-picker"),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   describe("conversation title", () => {
     it("shows a placeholder title once a message is sent, then the generated title when it arrives", async () => {
       setup({ conversationTitle: null });

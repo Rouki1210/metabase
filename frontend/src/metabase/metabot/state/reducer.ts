@@ -64,8 +64,18 @@ export const metabot = createSlice({
     },
     resetConversation: (state, action: ConvoPayloadAction) => {
       const { agentId } = action.payload;
-      const visible = state.conversations[agentId]?.visible ?? false;
-      const newConvo = createConversation(agentId, { visible });
+      const previous = state.conversations[agentId];
+      const visible = previous?.visible ?? false;
+      // Carry the picked profile over — starting a new conversation is not a
+      // request to switch assistants. Omitted rather than passed as undefined so
+      // the per-agent seeds in `createConversation` still apply when nothing was
+      // picked.
+      const newConvo = createConversation(agentId, {
+        visible,
+        ...(previous?.profileOverride
+          ? { profileOverride: previous.profileOverride }
+          : {}),
+      });
       state.conversations[agentId] = castDraft(newConvo);
       resetReactionState(state, agentId);
     },

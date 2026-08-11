@@ -31,6 +31,7 @@ import type { MetabotAgentId } from "../state";
 
 import { MetabotChat } from "./MetabotChat";
 import { MetabotConversationHistory } from "./MetabotChat/MetabotConversationHistory";
+import { MetabotProfilePicker } from "./MetabotChat/MetabotProfilePicker";
 
 const MetabotErrorFallback = ({ onRetry }: { onRetry: () => void }) => {
   return (
@@ -81,6 +82,12 @@ const MetabotSidebarActions = ({ agentId }: { agentId: MetabotAgentId }) => {
 
   return (
     <Flex gap="sm">
+      {isConfigured && (
+        <MetabotProfilePicker
+          profileId={metabot.profile}
+          onProfileSelect={metabot.setProfileOverride}
+        />
+      )}
       {isConfigured && (
         <Tooltip label={t`New conversation`} position="bottom">
           <ActionIcon
